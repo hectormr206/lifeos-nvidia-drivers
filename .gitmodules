@@ -1,0 +1,24 @@
+[submodule "nvidia-driver"]
+	path = nvidia-driver
+	url = https://github.com/bazzite-org/nvidia-driver
+[submodule "nvidia-driver-selinux"]
+	path = nvidia-driver-selinux
+	url = https://github.com/negativo17/nvidia-driver-selinux
+[submodule "nvidia-kmod"]
+	path = nvidia-kmod
+	url = https://github.com/negativo17/nvidia-kmod
+[submodule "nvidia-kmod-common"]
+	path = nvidia-kmod-common
+	url = https://github.com/negativo17/nvidia-kmod-common
+[submodule "nvidia-modprobe"]
+	path = nvidia-modprobe
+	url = https://github.com/negativo17/nvidia-modprobe
+[submodule "nvidia-persistenced"]
+	path = nvidia-persistenced
+	url = https://github.com/negativo17/nvidia-persistenced
+[submodule "nvidia-settings"]
+	path = nvidia-settings
+	url = https://github.com/negativo17/nvidia-settings
+[submodule "nvidia-container-toolkit"]
+	path = nvidia-container-toolkit
+	url = https://github.com/NVIDIA/nvidia-container-toolkit

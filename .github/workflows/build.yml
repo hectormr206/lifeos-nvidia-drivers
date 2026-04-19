@@ -1,0 +1,75 @@
+name: Build NVIDIA drivers
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    # Weekly rebuild — picks up new Fedora kernels so kmods stay current
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      nvidia-version:
+        description: Driver Version override (default = spec Version)
+        type: string
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+  attestations: write
+  packages: write
+
+concurrency:
+  group: nvidia-driver-${{ github.event.inputs.nvidia-version || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ["x86_64"]
+        fedora_version: ["43"]
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Build Nvidia driver
+        id: build
+        run: |
+          FEDORA_VERSION="${{ matrix.fedora_version }}" ./build-nct.sh
+          VERSION="${{ github.event.inputs.nvidia-version }}" \
+            FEDORA_VERSION="${{ matrix.fedora_version }}" ./build.sh
+          echo "version=$(cat .driver-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Build OCI image with drivers
+        id: oci
+        run: |
+          FEDORA_VERSION="${{ matrix.fedora_version }}" buildah unshare ./oci.sh
+
+      - name: Upload OCI image to Registry (version-tagged)
+        id: upload
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          podman push --digestfile .driver-version "localhost/nvidia-oci-f${{ matrix.fedora_version }}" \
+            "docker://ghcr.io/${{ github.repository }}:${{ steps.build.outputs.version }}-f${{ matrix.fedora_version }}-${{ matrix.arch }}"
+          echo "digest=$(cat .driver-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-digest: ${{ steps.upload.outputs.digest }}
+          subject-name: ghcr.io/${{ github.repository }}
+          push-to-registry: true
+
+      - name: Upload OCI image as latest (main branch or cron)
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'schedule'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          podman push "localhost/nvidia-oci-f${{ matrix.fedora_version }}" \
+            "docker://ghcr.io/${{ github.repository }}:latest-f${{ matrix.fedora_version }}-${{ matrix.arch }}"
